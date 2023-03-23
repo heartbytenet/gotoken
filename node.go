@@ -233,7 +233,7 @@ func (node *Node) Display() {
 }
 
 func (node *Node) Includes(other *Node) bool {
-	if node.IsWildcard() || other.IsWildcard() {
+	if node.IsWildcard() {
 		return true
 	}
 
@@ -242,11 +242,11 @@ func (node *Node) Includes(other *Node) bool {
 	}
 
 	for _, otherChild := range other.Children {
-		if node.IsWildcard() || otherChild.IsWildcard() {
+		if node.IsWildcard() {
 			continue
 		}
 
-		if node.HasWildcard() || otherChild.HasWildcard() {
+		if node.HasWildcard() {
 			continue
 		}
 
