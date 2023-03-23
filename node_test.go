@@ -245,36 +245,56 @@ func TestTreeIncludeWildcard(t *testing.T) {
 		err   error
 	)
 
-	treeX, err = gotoken.NewTree("hello.sekai")
+	treeX, err = gotoken.NewTree("*")
 	if err != nil {
 		t.Error(err)
 		return
 	}
 
-	treeY, err = gotoken.NewTree("*")
+	treeY, err = gotoken.NewTree("hello.*")
 	if err != nil {
 		t.Error(err)
 		return
 	}
 
-	treeZ, err = gotoken.NewTree("hello.*")
+	treeZ, err = gotoken.NewTree("hello.sekai")
 	if err != nil {
 		t.Error(err)
+		return
+	}
+
+	if !treeX.Includes(treeX) {
+		t.Error("trees always include themselves")
+		return
+	}
+
+	if !treeY.Includes(treeY) {
+		t.Error("trees always include themselves")
+		return
+	}
+
+	if !treeZ.Includes(treeZ) {
+		t.Error("trees always include themselves")
+		return
+	}
+
+	if !treeX.Includes(treeX) {
+		t.Error()
 		return
 	}
 
 	if !treeX.Includes(treeY) {
-		t.Error("treeX should include treeY")
+		t.Error()
 		return
 	}
 
 	if !treeX.Includes(treeZ) {
-		t.Error("treeX should include treeZ")
+		t.Error()
 		return
 	}
 
-	if !treeZ.Includes(treeY) {
-		t.Error("treeZ should include treeY")
+	if !treeY.Includes(treeZ) {
+		t.Error()
 		return
 	}
 }
