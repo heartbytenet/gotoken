@@ -24,6 +24,12 @@ func (node *Node) Init(value string, parent *Node) *Node {
 	node.Children = make([]*Node, 0)
 	node.Constraints = make(map[string]string, 0)
 
+	if value == "*" {
+		node.Type = NodeTypeWildcard
+	} else {
+		node.Type = NodeTypeRegular
+	}
+
 	return node
 }
 
@@ -33,6 +39,10 @@ func (node *Node) IsRoot() bool {
 
 func (node *Node) IsChild() bool {
 	return node.Parent != nil
+}
+
+func (node *Node) IsWildcard() bool {
+	return node.Type == NodeTypeWildcard
 }
 
 func (node *Node) SetParent(other *Node) {
@@ -213,11 +223,19 @@ func (node *Node) Display() {
 }
 
 func (node *Node) Includes(other *Node) bool {
+	if other.IsWildcard() {
+		return true
+	}
+
 	if other.Value != node.Value {
 		return false
 	}
 
 	for _, otherChild := range other.Children {
+		if otherChild.IsWildcard() {
+			continue
+		}
+
 		if !node.HasChildNode(otherChild) {
 			return false
 		}

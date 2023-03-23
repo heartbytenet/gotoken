@@ -236,3 +236,45 @@ func TestTreeIncludesSimple(t *testing.T) {
 		return
 	}
 }
+
+func TestTreeIncludeWildcard(t *testing.T) {
+	var (
+		treeX *gotoken.Node
+		treeY *gotoken.Node
+		treeZ *gotoken.Node
+		err   error
+	)
+
+	treeX, err = gotoken.NewTree("hello.sekai")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	treeY, err = gotoken.NewTree("*")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	treeZ, err = gotoken.NewTree("hello.*")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	if !treeX.Includes(treeY) {
+		t.Error("treeX should include treeY")
+		return
+	}
+
+	if !treeX.Includes(treeZ) {
+		t.Error("treeX should include treeZ")
+		return
+	}
+
+	if !treeZ.Includes(treeY) {
+		t.Error("treeZ should include treeY")
+		return
+	}
+}
