@@ -7,7 +7,7 @@ import (
 )
 
 func TestNodeNew(t *testing.T) {
-	node := gotoken.NewNode("eulav")
+	node := gotoken.NewNode("eulav", nil, nil)
 	if node == nil {
 		t.Error("node is nil")
 		return
@@ -20,8 +20,8 @@ func TestNodeNew(t *testing.T) {
 }
 
 func TestNodeNewParent(t *testing.T) {
-	parent := gotoken.NewNode("this_is_parent")
-	if parent.HasParent() {
+	parent := gotoken.NewNode("this_is_parent", nil, nil)
+	if parent.IsChild() {
 		t.Error("parent node should not have a parent")
 		return
 	}
@@ -31,19 +31,19 @@ func TestNodeNewParent(t *testing.T) {
 		return
 	}
 
-	if parent.HasChildren() {
+	if parent.IsParent() {
 		t.Error("parent node should not have children for now")
 		return
 	}
 
-	childX := gotoken.NewNode("this_is_childX", parent)
-	childY := gotoken.NewNode("this_is_childY", nil)
-	childZ := gotoken.NewNode("this_is_childZ")
-	childW := gotoken.NewNode("this_is_childW")
+	childX := gotoken.NewNode("this_is_childX", nil, parent)
+	childY := gotoken.NewNode("this_is_childY", nil, nil)
+	childZ := gotoken.NewNode("this_is_childZ", nil, nil)
+	childW := gotoken.NewNode("this_is_childW", nil, nil)
 
 	childW.Parent = parent
 
-	if !childX.HasParent() {
+	if !childX.IsChild() {
 		t.Error("childX node should have a parent")
 		return
 	}
@@ -53,7 +53,7 @@ func TestNodeNewParent(t *testing.T) {
 		return
 	}
 
-	if childY.HasParent() {
+	if childY.IsChild() {
 		t.Error("childY node should not have a parent")
 		return
 	}
@@ -63,7 +63,7 @@ func TestNodeNewParent(t *testing.T) {
 		return
 	}
 
-	if childZ.HasParent() {
+	if childZ.IsChild() {
 		t.Error("childZ node should not have a parent")
 		return
 	}
@@ -73,7 +73,7 @@ func TestNodeNewParent(t *testing.T) {
 		return
 	}
 
-	if !childW.HasParent() {
+	if !childW.IsChild() {
 		t.Error("childW node should have a parent")
 		return
 	}
@@ -95,50 +95,34 @@ func TestNodeNewParent(t *testing.T) {
 	}
 }
 
-func TestTreeNewEmpty(t *testing.T) {
-	_, err := gotoken.NewTree("")
-	if err != nil {
-		t.Error(err)
-		return
-	}
-}
-
 func TestTreeNewUnnamed(t *testing.T) {
-	root, err := gotoken.NewTree("")
-	if err != nil {
-		t.Error(err)
-		return
-	}
+	root := gotoken.NewNodeTree("")
 
 	if root.Value != "~" {
 		t.Error("root value should always be ~")
 		return
 	}
 
-	if root.HasChildren() {
+	if root.IsParent() {
 		t.Error("root value should not have children now")
 		return
 	}
 }
 
 func TestTreeNew(t *testing.T) {
-	root, err := gotoken.NewTree("hello")
-	if err != nil {
-		t.Error(err)
-		return
-	}
+	root := gotoken.NewNodeTree("hello")
 
 	if root.Value != "~" {
 		t.Error("root value should always be ~")
 		return
 	}
 
-	if !root.HasChildren() {
+	if len(root.Children) > 1 {
 		t.Error("root value should have one child")
 		return
 	}
 
-	node := root.GetChild("hello")
+	node := root.Child("hello", nil)
 	if node == nil {
 		t.Error("child node should not be nil")
 		return
@@ -154,7 +138,7 @@ func TestTreeNew(t *testing.T) {
 		return
 	}
 
-	if !node.HasParent() {
+	if !node.IsChild() {
 		t.Error("child node should have a parent")
 		return
 	}
@@ -170,26 +154,11 @@ func TestTreeIncludesSimple(t *testing.T) {
 		treeX *gotoken.Node
 		treeY *gotoken.Node
 		treeZ *gotoken.Node
-		err   error
 	)
 
-	treeX, err = gotoken.NewTree("hello.world.I.am.a.tree.that.is.very.special")
-	if err != nil {
-		t.Error(err)
-		return
-	}
-
-	treeY, err = gotoken.NewTree("hello.world.I.am.a.tree")
-	if err != nil {
-		t.Error(err)
-		return
-	}
-
-	treeZ, err = gotoken.NewTree("hello.world.I.am.an.imposter")
-	if err != nil {
-		t.Error(err)
-		return
-	}
+	treeX = gotoken.NewNodeTree("hello.world.I.am.a.tree.that.is.very.special")
+	treeY = gotoken.NewNodeTree("hello.world.I.am.a.tree")
+	treeZ = gotoken.NewNodeTree("hello.world.I.am.an.imposter")
 
 	if !treeX.Includes(treeX) {
 		t.Error("a tree should always include itself")
@@ -242,26 +211,11 @@ func TestTreeIncludeWildcard(t *testing.T) {
 		treeX *gotoken.Node
 		treeY *gotoken.Node
 		treeZ *gotoken.Node
-		err   error
 	)
 
-	treeX, err = gotoken.NewTree("*")
-	if err != nil {
-		t.Error(err)
-		return
-	}
-
-	treeY, err = gotoken.NewTree("hello.*")
-	if err != nil {
-		t.Error(err)
-		return
-	}
-
-	treeZ, err = gotoken.NewTree("hello.sekai")
-	if err != nil {
-		t.Error(err)
-		return
-	}
+	treeX = gotoken.NewNodeTree("*")
+	treeY = gotoken.NewNodeTree("hello.*")
+	treeZ = gotoken.NewNodeTree("hello.sekai")
 
 	if !treeX.Includes(treeX) {
 		t.Error("trees always include themselves")

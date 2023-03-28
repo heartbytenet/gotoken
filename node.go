@@ -1,201 +1,92 @@
 package gotoken
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 )
 
 const (
 	NodeDisplayCount = 8
+
+	NodePrefixRoot     = "~"
+	NodePrefixWildcard = "*"
 )
 
 type Node struct {
+	Parent   *Node
+	Children map[*Node]struct{}
+
+	Type NodeType
+
 	Value       string
-	Type        NodeType
-	Parent      *Node
-	Children    []*Node
 	Constraints map[string]string
 }
 
-func (node *Node) Init(value string, parent *Node) *Node {
-	node.Value = value
-	node.Parent = parent
-	node.Children = make([]*Node, 0)
-	node.Constraints = make(map[string]string, 0)
-
-	if value == "*" {
-		node.Type = NodeTypeWildcard
-	} else {
-		node.Type = NodeTypeRegular
+func getFirstChar(v string) string {
+	if len(v) < 1 {
+		return ""
 	}
-
-	return node
+	return v[0:1]
 }
 
-func (node *Node) IsRoot() bool {
-	return node.Parent == nil
+func (node *Node) IsWildcard() bool {
+	return node.Value == NodePrefixWildcard
 }
 
 func (node *Node) IsChild() bool {
 	return node.Parent != nil
 }
 
-func (node *Node) IsWildcard() bool {
-	return node.Type == NodeTypeWildcard
-}
-
-func (node *Node) HasWildcard() bool {
-	for _, child := range node.Children {
-		if child.IsWildcard() {
-			return true
-		}
-	}
-
-	return false
+func (node *Node) IsParent() bool {
+	return len(node.Children) >= 1
 }
 
 func (node *Node) SetParent(other *Node) {
-	if node.HasParent() {
-		node.Parent.RemoveChild(node)
-		node.Parent = nil
+	if other == nil {
+		return
+	}
+
+	if node.Parent != nil {
+		delete(node.Parent.Children, node)
 	}
 
 	node.Parent = other
-	node.Parent.AddChild(node)
+	other.Children[node] = struct{}{}
 }
 
-func (node *Node) HasParent() bool {
-	return node.Parent != nil
-}
+func (node *Node) Init(value string, constraints map[string]string, parent *Node) *Node {
+	node.Parent = parent
+	node.Children = make(map[*Node]struct{}, 16)
 
-func (node *Node) RemoveChild(other *Node) {
-	children := make([]*Node, 0)
-
-	for _, child := range node.Children {
-		if child.Value == other.Value {
-			continue
-		}
-
-		children = append(children, child)
-	}
-
-	node.Children = children
-}
-
-func (node *Node) HasChildren() bool {
-	if node.Children == nil {
-		return false
-	}
-
-	if len(node.Children) < 1 {
-		return false
-	}
-
-	return true
-}
-
-func (node *Node) HasChild(value string, constraints map[string]string) bool {
-	for _, child := range node.Children {
-		if child.Value != value {
-			continue
-		}
-
-		if !child.HasConstraints(constraints) {
-			continue
-		}
-
-		return true
-	}
-
-	return false
-}
-
-func (node *Node) HasChildNode(other *Node) bool {
-	return node.HasChild(other.Value, other.Constraints)
-}
-
-func (node *Node) GetChild(value string) *Node {
-	if !node.HasChildren() {
-		return nil
-	}
-
-	for _, child := range node.Children {
-		if child.Value == value {
-			return child
-		}
-	}
-
-	return nil
-}
-
-func (node *Node) AddChild(other *Node) *Node {
-	if other == nil {
-		return nil
-	}
-
-	for _, child := range node.Children {
-		if child.Value == other.Value {
-			child.AddConstraints(other.Constraints)
-			return other
-		}
-	}
-
-	node.Children = append(node.Children, other)
-
-	return other
-}
-
-func (node *Node) AddChildren(children ...*Node) {
-	var (
-		flag bool
-	)
-
-	if children == nil {
-		return
-	}
-
-	if len(children) < 1 {
-		return
-	}
-
-	if node.Children == nil {
-		node.Children = make([]*Node, 0)
-	}
-
-	for _, child := range children {
-		flag = true
-		for _, v := range node.Children {
-			if v.Value == child.Value {
-				v.AddConstraints(child.Constraints)
-				flag = false
-				break
-			}
-		}
-
-		if !flag {
-			continue
-		}
-
-		node.Children = append(node.Children, child)
-	}
-}
-
-func (node *Node) AddConstraints(constraints map[string]string) *Node {
+	node.Value = value
+	node.Constraints = constraints
 	if node.Constraints == nil {
-		node.Constraints = map[string]string{}
+		node.Constraints = make(map[string]string)
 	}
 
-	for k, v := range constraints {
-		node.Constraints[k] = v
+	switch getFirstChar(value) {
+	case NodePrefixWildcard:
+		node.Type = NodeTypeWildcard
+		break
+	default:
+		node.Type = NodeTypeRegular
+		break
 	}
 
 	return node
 }
 
-func (node *Node) HasConstraints(constraints map[string]string) bool {
-	for k, v := range constraints {
-		if node.Constraints[k] != v {
+func (node *Node) Match(value string, constraints map[string]string) bool {
+	if node.Value != value {
+		return false
+	}
+
+	if len(constraints) != len(node.Constraints) {
+		return false
+	}
+
+	for key, val := range constraints {
+		if node.Constraints[key] != val {
 			return false
 		}
 	}
@@ -203,19 +94,81 @@ func (node *Node) HasConstraints(constraints map[string]string) bool {
 	return true
 }
 
-func (node *Node) HasConstraint(key string, value string) bool {
-	return node.Constraints[key] == value
+func (node *Node) MatchWith(value string, constraints map[string]string) bool {
+	if node.Value != value {
+		return false
+	}
+
+	for key, val := range constraints {
+		if node.Constraints[key] != val {
+			return false
+		}
+	}
+
+	return true
 }
 
-func (node *Node) display_iter(space int) {
-	space += NodeDisplayCount
+func (node *Node) Child(value string, constraints map[string]string) *Node {
+	var (
+		wild *Node
+	)
 
-	l := len(node.Children)
-	i := 0
+	wild = nil
 
-	// for ; i < (l / 2); i++ {
-	// 	node.Children[i].display_iter(space)
-	// }
+	for child := range node.Children {
+		if child.IsWildcard() {
+			wild = child
+			continue
+		}
+
+		if !child.Match(value, constraints) {
+			continue
+		}
+
+		return child
+	}
+
+	return wild // Todo: I'm not sure about this, the idea is to return a wildcard at the end if there's one anyway
+}
+
+func (node *Node) ChildWith(value string, constraints map[string]string) *Node {
+	var (
+		wild *Node
+	)
+
+	wild = nil
+
+	for child := range node.Children {
+		if child.IsWildcard() {
+			wild = child
+			continue
+		}
+
+		if !child.MatchWith(value, constraints) {
+			continue
+		}
+
+		return child
+	}
+
+	return wild // Todo: same thing here as node.Child()
+}
+
+func (node *Node) Append(value string, constraints map[string]string) (other *Node) {
+	other = node.Child(value, constraints)
+	if other != nil {
+		return
+	}
+
+	other = NewNode(value, constraints, node)
+	return
+}
+
+func (node *Node) Display(_space ...int) {
+	space := 0
+	if len(_space) >= 1 {
+		space = _space[0]
+	}
 
 	fmt.Printf(
 		"%s#%s@%v\n",
@@ -223,38 +176,31 @@ func (node *Node) display_iter(space int) {
 		node.Value,
 		node.Constraints)
 
-	for ; i < l; i++ {
-		node.Children[i].display_iter(space)
+	for child := range node.Children {
+		child.Display(space + NodeDisplayCount)
 	}
 }
 
-func (node *Node) Display() {
-	node.display_iter(-NodeDisplayCount)
-}
-
 func (node *Node) Includes(other *Node) bool {
+	var (
+		child *Node
+	)
+
 	if node.IsWildcard() {
 		return true
 	}
 
-	if other.Value != node.Value {
+	if !node.MatchWith(other.Value, other.Constraints) {
 		return false
 	}
 
-	for _, otherChild := range other.Children {
-		if node.IsWildcard() {
-			continue
-		}
-
-		if node.HasWildcard() {
-			continue
-		}
-
-		if !node.HasChildNode(otherChild) {
+	for n := range other.Children {
+		child = node.ChildWith(n.Value, n.Constraints)
+		if child == nil {
 			return false
 		}
 
-		if !node.GetChild(otherChild.Value).Includes(otherChild) {
+		if !child.Includes(n) {
 			return false
 		}
 	}
@@ -262,59 +208,82 @@ func (node *Node) Includes(other *Node) bool {
 	return true
 }
 
-func NewNode(value string, parent ...*Node) (node *Node) {
-	var (
-		final *Node
-	)
-
-	final = nil
-	if len(parent) >= 1 {
-		final = parent[0]
+func (node *Node) Merge(other *Node) {
+	if !node.Match(other.Value, other.Constraints) {
+		return
 	}
 
-	node = (&Node{}).Init(value, final)
-	if node.HasParent() {
-		node.Parent.AddChild(node)
+	for child := range other.Children {
+		node.Append(child.Value, child.Constraints).Merge(child)
+	}
+}
+
+// NewNode creates a node and adds its reference to the parent if existing
+func NewNode(value string, constraints map[string]string, parent *Node) (node *Node) {
+	node = (&Node{}).Init(
+		value, constraints, parent)
+
+	if parent != nil {
+		parent.Children[node] = struct{}{}
 	}
 
 	return
 }
 
-func NewTree(flat string) (root *Node, err error) {
+func NewNodeTree(source string) (root *Node) {
 	var (
 		curr *Node
 		next *Node
 	)
 
-	flat, _ = strings.CutPrefix(flat, "~.")
+	root = NewNode(NodePrefixRoot, nil, nil)
+	if source == "~" {
+		return
+	}
 
-	root = NewNode("~")
 	curr = root
 	next = nil
-	for _, nodeString := range strings.Split(flat, ".") {
-		if nodeString == "" {
+
+	for _, nodeSource := range strings.Split(source, ".") {
+		if nodeSource == "" {
 			continue
 		}
 
-		nodeSplit := strings.Split(nodeString, "@")
-		nodeValue := nodeSplit[0]
-		nodeConst := map[string]string{}
+		nodeSourceSplit := strings.Split(nodeSource, "@")
 
-		if len(nodeSplit) >= 2 {
-			for _, nodeConstString := range strings.Split(nodeSplit[1], ";") {
-				nodeConstKeyVal := strings.Split(nodeConstString, "=")
-				if len(nodeConstKeyVal) < 2 {
-					err = errors.New("failed at parsing constraints")
-					return
+		nodeValue := nodeSourceSplit[0]
+		if nodeValue == "" {
+			continue
+		}
+
+		nodeConstraints := map[string]string{}
+		if len(nodeSourceSplit) >= 2 {
+			nodeConstraintsSource := nodeSourceSplit[1]
+			if nodeConstraintsSource != "" {
+				for _, nodeConstraint := range strings.Split(nodeConstraintsSource, ";") {
+					if nodeConstraint == "" {
+						continue
+					}
+
+					nodeConstraintSplit := strings.Split(nodeConstraint, "=")
+					if len(nodeConstraintSplit) < 2 {
+						continue
+					}
+
+					if nodeConstraintSplit[0] == "" {
+						continue
+					}
+
+					if nodeConstraintSplit[1] == "" {
+						continue
+					}
+
+					nodeConstraints[nodeConstraintSplit[0]] = nodeConstraintSplit[1]
 				}
-
-				nodeConst[nodeConstKeyVal[0]] = nodeConstKeyVal[1]
 			}
 		}
 
-		next = NewNode(nodeValue, curr)
-		next.AddConstraints(nodeConst)
-		curr.AddChildren(next)
+		next = curr.Append(nodeValue, nodeConstraints)
 
 		curr = next
 		next = nil

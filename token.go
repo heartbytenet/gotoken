@@ -1,75 +1,35 @@
 package gotoken
 
-import "log"
+import "github.com/google/uuid"
 
 type Token struct {
 	UUID  string
-	Perms map[string]*Node
+	Perms map[string]struct{}
+	Tree  *Node
 }
 
 func (token *Token) Init(uuid string) *Token {
 	token.UUID = uuid
-	token.Perms = map[string]*Node{}
+	token.Perms = map[string]struct{}{}
+	token.Tree = NewNodeTree("~")
 
 	return token
 }
 
-func (token *Token) AddPerms(perms ...string) (res *Token, err error) {
-	var (
-		node *Node
-	)
-
-	res = token
-
+func (token *Token) AddPerms(perms ...string) {
 	for _, perm := range perms {
-		if token.Perms[perm] != nil {
-			continue
-		}
-
-		node, err = NewTree(perm)
-		if err != nil {
-			return
-		}
-
-		token.Perms[perm] = node
+		token.Perms[perm] = struct{}{}
+		token.Tree.Merge(NewNodeTree(perm))
 	}
-
-	return
-}
-
-func (token *Token) AddPermsMust(perms ...string) *Token {
-	var (
-		err error
-	)
-
-	_, err = token.AddPerms(perms...)
-	if err != nil {
-		log.Fatalln("error while adding perms", err)
-	}
-
-	return token
 }
 
 func (token *Token) HasPerm(perm string) bool {
-	var (
-		node *Node
-		err  error
-	)
+	return token.Tree.Includes(
+		NewNodeTree(perm))
+}
 
-	node, err = NewTree(perm)
-	if err != nil {
-		return false
-	}
+func NewToken() (token *Token) {
+	token = (&Token{}).Init(uuid.New().String())
 
-	for key, val := range token.Perms {
-		if key == perm {
-			return true
-		}
-
-		if val.Includes(node) {
-			return true
-		}
-	}
-
-	return false
+	return
 }
