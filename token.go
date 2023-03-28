@@ -3,9 +3,9 @@ package gotoken
 import "github.com/google/uuid"
 
 type Token struct {
-	UUID  string
-	Perms map[string]struct{}
-	Tree  *Node
+	UUID  string              `json:"uuid"`
+	Perms map[string]struct{} `json:"perms"`
+	Tree  *Node               `json:"-"`
 }
 
 func (token *Token) Init(uuid string) *Token {
