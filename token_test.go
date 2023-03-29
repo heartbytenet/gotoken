@@ -1,8 +1,9 @@
 package gotoken_test
 
 import (
-	"github.com/heartbytenet/gotoken"
 	"testing"
+
+	"github.com/heartbytenet/gotoken"
 )
 
 func TestToken_Init(t *testing.T) {
@@ -34,8 +35,6 @@ func TestToken_HasPerm(t *testing.T) {
 	token.AddPerms("hello.world@abc=123")
 	token.AddPerms("hello.world@xyz=987.hey")
 	token.AddPerms("hello.monde@among=us;us=among")
-
-	token.Tree.Display()
 
 	if token.HasPerm("*") {
 		t.Error()
@@ -70,6 +69,24 @@ func TestToken_HasPerm(t *testing.T) {
 	}
 
 	if token.HasPerm("hello.monde.imposter") {
+		t.Error()
+	}
+}
+
+func TestToken_AddPermsWildcard(t *testing.T) {
+	token := (&gotoken.Token{}).Init("ce93fe81-5cf5-4819-b898-5f28c640bedd")
+
+	if token.HasPerm("something") {
+		t.Error()
+	}
+
+	token.AddPerms("*")
+	if !token.HasPerm("something") {
+		t.Error()
+	}
+
+	token.AddPerms("**")
+	if !token.HasPerm("something") {
 		t.Error()
 	}
 }
